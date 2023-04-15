@@ -1,24 +1,35 @@
 use crate::ray::Ray;
 use crate::vec3::Vec3;
 
+#[derive(Clone, Copy)]
+pub struct Material {
+    pub base_colour: Vec3,
+    pub emission_colour: Vec3,
+    pub emission_strength: f64
+}
+
+impl Material {
+    pub fn with_colour(base: Vec3) -> Self {
+        Material { base_colour: base, emission_colour: Vec3::ZERO, emission_strength: 0.0 }
+    }
+
+    pub fn white_lamp() -> Self {
+        Material { base_colour: Vec3::ZERO, emission_colour: Vec3::ONES, emission_strength: 1.0 }
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct HitResult {
     pub pos: Vec3,
     pub normal: Vec3,
     pub distance: f64,
 
     pub front_face: bool,
+
+    pub material: Material,
 }
 
 impl HitResult {
-    pub fn infinitely_far_hr() -> Self {
-        HitResult {
-            pos: Vec3::ZERO,
-            normal: Vec3::ZERO,
-            distance: f64::INFINITY,
-            front_face: false,
-        }
-    }
-
     pub fn set_face_normal(&mut self, ray: &Ray, outward_normal: &Vec3) {
         self.front_face = ray.dir.dot(outward_normal) < 0.0;
         self.normal = if self.front_face {
@@ -36,11 +47,12 @@ pub trait Renderable {
 pub struct Sphere {
     pub centre: Vec3,
     pub radius: f64,
+    pub material: Material
 }
 
 impl Sphere {
-    pub fn new(centre: Vec3, radius: f64) -> Self {
-        Sphere { centre, radius }
+    pub fn new(centre: Vec3, radius: f64, material: Material) -> Self {
+        Sphere { centre, radius, material }
     }
 }
 
@@ -75,6 +87,7 @@ impl Renderable for Sphere {
                 pos: ray.at(root),
                 normal: ((ray.at(root) - self.centre) / self.radius).normalise(),
                 front_face: false,
+                material: self.material
             };
 
             hr.set_face_normal(ray, &hr.normal.clone());

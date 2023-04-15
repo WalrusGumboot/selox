@@ -1,4 +1,12 @@
+use rand::{Rng, rngs::ThreadRng};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+
+fn random_normal_dist(rng: &mut ThreadRng) -> f64 {
+    let theta = std::f64::consts::TAU * rng.gen::<f64>();
+    let rho = (-2.0 * rng.gen::<f64>().log(10.0)).sqrt();
+
+    rho * theta.cos()
+}
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Vec3(pub f64, pub f64, pub f64);
@@ -37,13 +45,47 @@ impl Vec3 {
         )
     }
 
-    pub fn to_colour(&self) -> [u8; 3] {
-        let multiplied = *self * 255.0;
-        let r = multiplied.0.clamp(0.0, 255.0) as u8;
-        let g = multiplied.1.clamp(0.0, 255.0) as u8;
-        let b = multiplied.2.clamp(0.0, 255.0) as u8;
+    pub fn hadamard(&self, rhs: &Self) -> Self {
+        Vec3(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
+    }
 
-        [r, g, b]
+    pub fn to_colour(&self, samples_per_pixel: u32) -> [u8; 3] {
+        let r = self.0;
+        let g = self.1;
+        let b = self.2;
+
+        let scale = 1.0 / samples_per_pixel as f64;
+        let gamma_corrected_r = (scale * r).sqrt().clamp(0.0, 1.0 - f64::EPSILON);
+        let gamma_corrected_g = (scale * g).sqrt().clamp(0.0, 1.0 - f64::EPSILON);
+        let gamma_corrected_b = (scale * b).sqrt().clamp(0.0, 1.0 - f64::EPSILON);
+
+        let pix_r = (gamma_corrected_r * 256.0).floor() as u8;
+        let pix_g = (gamma_corrected_g * 256.0).floor() as u8;
+        let pix_b = (gamma_corrected_b * 256.0).floor() as u8;
+
+        [pix_r, pix_g, pix_b]
+    }
+
+    pub fn random_range(rng: &mut ThreadRng, min: f64, max: f64) -> Self {
+        Vec3(rng.gen_range(min..max), rng.gen_range(min..max), rng.gen_range(min..max))
+    }
+
+    pub fn random_unit(rng: &mut ThreadRng) -> Self {
+        Self::random_range(rng, 0.0, 1.0)
+    }
+
+    pub fn random_in_unit_sphere(rng: &mut ThreadRng) -> Self {
+        // simple rejection algorithm
+        let x = random_normal_dist(rng);
+        let y = random_normal_dist(rng);
+        let z = random_normal_dist(rng);
+
+        Self(x, y, z).normalise()
+    }
+
+    pub fn random_on_hemisphere(rng: &mut ThreadRng, normal: Vec3) -> Self {
+        let dir = Self::random_in_unit_sphere(rng);
+        return dir * normal.dot(&dir).signum();
     }
 }
 
